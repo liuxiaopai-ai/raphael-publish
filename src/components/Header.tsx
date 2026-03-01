@@ -1,4 +1,4 @@
-import { Moon, Sun } from 'lucide-react';
+import { Moon, Sun, Github } from 'lucide-react';
 import { motion } from 'framer-motion';
 
 interface HeaderProps {
@@ -21,6 +21,16 @@ export default function Header({ themeMode, onToggleTheme }: HeaderProps) {
             </div>
 
             <div className="flex items-center gap-4">
+                <motion.a
+                    whileHover={{ scale: 1.05 }}
+                    whileTap={{ scale: 0.95 }}
+                    href="https://github.com/liuxiaopai-ai/raphael-publish"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="p-2 rounded-full hover:bg-black/5 dark:hover:bg-white/10 transition-colors"
+                >
+                    <Github size={20} />
+                </motion.a>
                 <motion.button
                     whileHover={{ scale: 1.05 }}
                     whileTap={{ scale: 0.95 }}
