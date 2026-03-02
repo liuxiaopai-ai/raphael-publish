@@ -25,6 +25,7 @@ export default function App() {
     const editorScrollRef = useRef<HTMLTextAreaElement>(null);
     const previewScrollRef = useRef<HTMLDivElement>(null);
     const scrollSyncLockRef = useRef<'editor' | 'preview' | null>(null);
+    const scrollLockReleaseTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
     useEffect(() => {
         // Enforce light mode as default, do not follow system preferences
@@ -48,8 +49,20 @@ export default function App() {
     useEffect(() => {
         if (!scrollSyncEnabled) {
             scrollSyncLockRef.current = null;
+            if (scrollLockReleaseTimeoutRef.current) {
+                clearTimeout(scrollLockReleaseTimeoutRef.current);
+                scrollLockReleaseTimeoutRef.current = null;
+            }
         }
     }, [scrollSyncEnabled]);
+
+    useEffect(() => {
+        return () => {
+            if (scrollLockReleaseTimeoutRef.current) {
+                clearTimeout(scrollLockReleaseTimeoutRef.current);
+            }
+        };
+    }, []);
 
     const syncScrollPosition = (
         sourceElement: HTMLElement,
@@ -70,11 +83,16 @@ export default function App() {
         scrollSyncLockRef.current = sourcePanel;
         targetElement.scrollTop = scrollRatio * Math.max(targetMaxScroll, 0);
 
-        requestAnimationFrame(() => {
+        if (scrollLockReleaseTimeoutRef.current) {
+            clearTimeout(scrollLockReleaseTimeoutRef.current);
+        }
+
+        scrollLockReleaseTimeoutRef.current = setTimeout(() => {
             if (scrollSyncLockRef.current === sourcePanel) {
                 scrollSyncLockRef.current = null;
             }
-        });
+            scrollLockReleaseTimeoutRef.current = null;
+        }, 50);
     };
 
     const handleEditorScroll = () => {
