@@ -20,7 +20,11 @@ export default function App() {
     const [isCopying, setIsCopying] = useState(false);
     const [previewDevice, setPreviewDevice] = useState<'mobile' | 'tablet' | 'pc'>('pc');
     const [activePanel, setActivePanel] = useState<'editor' | 'preview'>('editor');
+    const [scrollSyncEnabled, setScrollSyncEnabled] = useState(true);
     const previewRef = useRef<HTMLDivElement>(null);
+    const editorScrollRef = useRef<HTMLTextAreaElement>(null);
+    const previewScrollRef = useRef<HTMLDivElement>(null);
+    const scrollSyncLockRef = useRef<'editor' | 'preview' | null>(null);
 
     useEffect(() => {
         // Enforce light mode as default, do not follow system preferences
@@ -40,6 +44,52 @@ export default function App() {
         const styledHtml = applyTheme(rawHtml, activeTheme);
         setRenderedHtml(styledHtml);
     }, [markdownInput, activeTheme]);
+
+    useEffect(() => {
+        if (!scrollSyncEnabled) {
+            scrollSyncLockRef.current = null;
+        }
+    }, [scrollSyncEnabled]);
+
+    const syncScrollPosition = (
+        sourceElement: HTMLElement,
+        targetElement: HTMLElement,
+        sourcePanel: 'editor' | 'preview'
+    ) => {
+        if (!scrollSyncEnabled) return;
+        if (scrollSyncLockRef.current && scrollSyncLockRef.current !== sourcePanel) return;
+
+        const sourceMaxScroll = sourceElement.scrollHeight - sourceElement.clientHeight;
+        const targetMaxScroll = targetElement.scrollHeight - targetElement.clientHeight;
+        if (sourceMaxScroll <= 0) {
+            targetElement.scrollTop = 0;
+            return;
+        }
+
+        const scrollRatio = sourceElement.scrollTop / sourceMaxScroll;
+        scrollSyncLockRef.current = sourcePanel;
+        targetElement.scrollTop = scrollRatio * Math.max(targetMaxScroll, 0);
+
+        requestAnimationFrame(() => {
+            if (scrollSyncLockRef.current === sourcePanel) {
+                scrollSyncLockRef.current = null;
+            }
+        });
+    };
+
+    const handleEditorScroll = () => {
+        const editorElement = editorScrollRef.current;
+        const previewElement = previewScrollRef.current;
+        if (!editorElement || !previewElement) return;
+        syncScrollPosition(editorElement, previewElement, 'editor');
+    };
+
+    const handlePreviewScroll = () => {
+        const previewElement = previewScrollRef.current;
+        const editorElement = editorScrollRef.current;
+        if (!previewElement || !editorElement) return;
+        syncScrollPosition(previewElement, editorElement, 'preview');
+    };
 
     const handleCopy = async () => {
         if (!previewRef.current) return;
@@ -143,6 +193,8 @@ export default function App() {
                     onCopy={handleCopy}
                     copied={copied}
                     isCopying={isCopying}
+                    scrollSyncEnabled={scrollSyncEnabled}
+                    onToggleScrollSync={() => setScrollSyncEnabled((prev) => !prev)}
                 />
             </div>
 
@@ -157,13 +209,21 @@ export default function App() {
                     onCopy={handleCopy}
                     copied={copied}
                     isCopying={isCopying}
+                    scrollSyncEnabled={scrollSyncEnabled}
+                    onToggleScrollSync={() => setScrollSyncEnabled((prev) => !prev)}
                 />
             </div>
 
             {/* 编辑区 & 预览区 */}
             <main className={`flex-1 overflow-hidden grid grid-cols-1 ${gridLayoutClass()} relative transition-all duration-500`}>
                 <div className={`${activePanel === 'editor' ? 'flex' : 'hidden'} md:flex flex-col overflow-hidden`}>
-                    <EditorPanel markdownInput={markdownInput} onInputChange={setMarkdownInput} />
+                    <EditorPanel
+                        markdownInput={markdownInput}
+                        onInputChange={setMarkdownInput}
+                        editorScrollRef={editorScrollRef}
+                        onEditorScroll={handleEditorScroll}
+                        scrollSyncEnabled={scrollSyncEnabled}
+                    />
                 </div>
                 <div className={`${activePanel === 'preview' ? 'flex' : 'hidden'} md:flex flex-col overflow-hidden`}>
                     <PreviewPanel
@@ -171,6 +231,9 @@ export default function App() {
                         deviceWidthClass={deviceWidthClass()}
                         previewDevice={previewDevice}
                         previewRef={previewRef}
+                        previewScrollRef={previewScrollRef}
+                        onPreviewScroll={handlePreviewScroll}
+                        scrollSyncEnabled={scrollSyncEnabled}
                     />
                 </div>
             </main>

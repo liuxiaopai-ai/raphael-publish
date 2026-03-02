@@ -1,4 +1,4 @@
-import { Copy, CheckCircle2, Download, Smartphone, Tablet, Monitor, Loader2 } from 'lucide-react';
+import { Copy, CheckCircle2, Download, Smartphone, Tablet, Monitor, Loader2, Link2, Unlink2 } from 'lucide-react';
 import { motion } from 'framer-motion';
 
 interface ToolbarProps {
@@ -9,9 +9,11 @@ interface ToolbarProps {
     onCopy: () => void;
     copied: boolean;
     isCopying: boolean;
+    scrollSyncEnabled: boolean;
+    onToggleScrollSync: () => void;
 }
 
-export default function Toolbar({ previewDevice, onDeviceChange, onExportPdf, onExportHtml, onCopy, copied, isCopying }: ToolbarProps) {
+export default function Toolbar({ previewDevice, onDeviceChange, onExportPdf, onExportHtml, onCopy, copied, isCopying, scrollSyncEnabled, onToggleScrollSync }: ToolbarProps) {
     return (
         <div className="flex items-center justify-between px-4 sm:px-6 py-3">
             <div className="hidden md:flex bg-[#00000008] dark:bg-[#ffffff10] p-1 rounded-full backdrop-blur-md">
@@ -39,6 +41,18 @@ export default function Toolbar({ previewDevice, onDeviceChange, onExportPdf, on
             </div>
 
             <div className="flex items-center gap-4">
+                <motion.button
+                    whileHover={{ scale: 1.02 }}
+                    whileTap={{ scale: 0.96 }}
+                    onClick={onToggleScrollSync}
+                    className={`apple-export-btn !bg-[#00000008] dark:!bg-[#ffffff10] border-transparent ${scrollSyncEnabled ? 'text-[#0066cc] dark:text-[#0a84ff]' : 'text-[#86868b] dark:text-[#a1a1a6]'}`}
+                    title={scrollSyncEnabled ? '关闭滚动同步' : '开启滚动同步'}
+                >
+                    {scrollSyncEnabled ? <Link2 size={14} /> : <Unlink2 size={14} />}
+                    <span className="hidden sm:inline">{scrollSyncEnabled ? '滚动同步开' : '滚动同步关'}</span>
+                    <span className="sm:hidden">{scrollSyncEnabled ? '同步开' : '同步关'}</span>
+                </motion.button>
+
                 <motion.button
                     whileHover={{ scale: 1.02 }}
                     whileTap={{ scale: 0.96 }}
