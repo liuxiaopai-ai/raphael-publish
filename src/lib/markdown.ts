@@ -30,10 +30,15 @@ export function preprocessMarkdown(content: string) {
     content = content.replace(/^[ ]{0,3}(\*[ ]*\*[ ]*\*[\* ]*)[ \t]*$/gm, '***');
     content = content.replace(/^[ ]{0,3}(-[ ]*-[ ]*-[- ]*)[ \t]*$/gm, '---');
     content = content.replace(/^[ ]{0,3}(_[ ]*_[ ]*_[_ ]*)[ \t]*$/gm, '___');
-    content = content.replace(/\*\*\s+\*\*/g, ' ');
+    content = content.replace(/\*\*[ \t]+\*\*/g, ' ');
     content = content.replace(/\*{4,}/g, '');
-    content = content.replace(/\*\*([）」』》〉】〕〗］｝"'。，、；？！])/g, '**\u200B$1');
-    content = content.replace(/([（「『《〈【〔〖［｛"'])\*\*/g, '$1\u200B**');
+    // markdown-it may fail to open bold when content starts with punctuation/symbol
+    // and `**` is attached directly to preceding text (e.g. `至**-5%**。`).
+    // Insert a zero-width separator only inside opening `**...` for these cases.
+    content = content.replace(
+        /([^\s])\*\*([+\-＋－%％~～!！?？,，.。:：;；、\\/|@#￥$^&*_=（）()【】\[\]《》〈〉「」『』“”"'`…·][^\n*]*?)\*\*/g,
+        '$1**\u200B$2**'
+    );
     return content;
 }
 
