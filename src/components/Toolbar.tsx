@@ -15,7 +15,7 @@ interface ToolbarProps {
 
 export default function Toolbar({ previewDevice, onDeviceChange, onExportPdf, onExportHtml, onCopy, copied, isCopying, scrollSyncEnabled, onToggleScrollSync }: ToolbarProps) {
     return (
-        <div className="flex items-center justify-between px-4 sm:px-6 py-3">
+        <div className="flex items-center justify-between px-4 sm:px-6 py-3 max-w-[1024px]">
             <div className="hidden md:flex bg-[#00000008] dark:bg-[#ffffff10] p-1 rounded-full backdrop-blur-md">
                 <button
                     onClick={() => onDeviceChange('mobile')}
