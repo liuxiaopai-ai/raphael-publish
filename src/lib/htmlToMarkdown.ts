@@ -90,7 +90,7 @@ function getClipboardImageFiles(clipboardData: DataTransfer): File[] {
     return Array.from(clipboardData.files || []).filter((file) => file.type.startsWith('image/'));
 }
 
-function fileToDataUrl(file: File): Promise<string> {
+export function fileToDataUrl(file: File): Promise<string> {
     return new Promise((resolve, reject) => {
         const reader = new FileReader();
         reader.onload = () => resolve(String(reader.result || ''));
@@ -99,7 +99,7 @@ function fileToDataUrl(file: File): Promise<string> {
     });
 }
 
-function insertAtSelection(
+export function insertAtSelection(
     textarea: HTMLTextAreaElement,
     markdownInput: string,
     insertedText: string,
