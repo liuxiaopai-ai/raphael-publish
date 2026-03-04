@@ -14,7 +14,7 @@ export default function EditorPanel({ markdownInput, onInputChange, editorScroll
     const fileInputRef = useRef<HTMLInputElement>(null);
 
     const onPaste = (e: React.ClipboardEvent<HTMLTextAreaElement>) => {
-        handleSmartPaste(e, markdownInput, onInputChange);
+        handleSmartPaste(e, onInputChange);
     };
 
     const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -31,7 +31,7 @@ export default function EditorPanel({ markdownInput, onInputChange, editorScroll
                     .map((src, index) => `![图片${files.length > 1 ? ` ${index + 1}` : ''}](${src})`)
                     .join('\n\n');
                 if (!markdownImages) return;
-                insertAtSelection(textarea, markdownInput, markdownImages, onInputChange);
+                insertAtSelection(textarea, markdownImages, onInputChange);
             })
             .catch((err) => {
                 console.error('Image upload failed:', err);
