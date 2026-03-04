@@ -90,7 +90,7 @@ function getClipboardImageFiles(clipboardData: DataTransfer): File[] {
     return Array.from(clipboardData.files || []).filter((file) => file.type.startsWith('image/'));
 }
 
-function fileToDataUrl(file: File): Promise<string> {
+export function fileToDataUrl(file: File): Promise<string> {
     return new Promise((resolve, reject) => {
         const reader = new FileReader();
         reader.onload = () => resolve(String(reader.result || ''));
@@ -99,15 +99,15 @@ function fileToDataUrl(file: File): Promise<string> {
     });
 }
 
-function insertAtSelection(
+export function insertAtSelection(
     textarea: HTMLTextAreaElement,
-    markdownInput: string,
     insertedText: string,
     setMarkdownInput: (val: string) => void
 ) {
+    const currentValue = textarea.value;
     const start = textarea.selectionStart;
     const end = textarea.selectionEnd;
-    const newValue = markdownInput.substring(0, start) + insertedText + markdownInput.substring(end);
+    const newValue = currentValue.substring(0, start) + insertedText + currentValue.substring(end);
     setMarkdownInput(newValue);
 
     setTimeout(() => {
@@ -119,7 +119,6 @@ function insertAtSelection(
 
 export function handleSmartPaste(
     e: React.ClipboardEvent<HTMLTextAreaElement>,
-    markdownInput: string,
     setMarkdownInput: (val: string) => void
 ): void {
     const clipboardData = e.clipboardData;
@@ -141,7 +140,7 @@ export function handleSmartPaste(
                     .join('\n\n');
 
                 if (!markdownImages) return;
-                insertAtSelection(textarea, markdownInput, markdownImages, setMarkdownInput);
+                insertAtSelection(textarea, markdownImages, setMarkdownInput);
             })
             .catch((err) => {
                 console.error('Clipboard image conversion failed:', err);
@@ -180,12 +179,12 @@ export function handleSmartPaste(
             markdown = markdown.replace(/\n{3,}/g, '\n\n');
 
             const textarea = e.currentTarget;
-            insertAtSelection(textarea, markdownInput, markdown, setMarkdownInput);
+            insertAtSelection(textarea, markdown, setMarkdownInput);
         } catch (err) {
             console.error('HTML to Markdown conversion failed:', err);
             // Fallback to text
             const textarea = e.currentTarget;
-            insertAtSelection(textarea, markdownInput, textData, setMarkdownInput);
+            insertAtSelection(textarea, textData, setMarkdownInput);
         }
     } else if (textData && isMarkdown(textData)) {
         return;
