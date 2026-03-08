@@ -19,14 +19,13 @@ turndownService.addRule('image', {
     filter: 'img',
     replacement: (_content, node: any) => {
         const alt = node.alt || '图片';
-        const src = node.src || '';
-        const title = node.title || '';
-        if (src.startsWith('data:image')) {
-            const typeMatch = src.match(/data:image\/(\w+);/);
-            const type = typeMatch ? typeMatch[1] : 'image';
-            return `![${alt}](data:image/${type};base64,...)${title ? ` "${title}"` : ''}\n`;
-        }
-        return `![${alt}](${src})${title ? ` "${title}"` : ''}\n`;
+        const src = (node.getAttribute?.('src') || node.src || '').trim();
+        const title = (node.title || '').replace(/"/g, '\\"');
+
+        if (!src) return '';
+
+        // Preserve full data URLs. Truncating them produces broken pasted images.
+        return `![${alt}](${src}${title ? ` "${title}"` : ''})\n`;
     }
 });
 
