@@ -20,6 +20,8 @@ export default function App() {
     const [isCopying, setIsCopying] = useState(false);
     const [previewDevice, setPreviewDevice] = useState<'mobile' | 'tablet' | 'pc'>('pc');
     const [activePanel, setActivePanel] = useState<'editor' | 'preview'>('editor');
+    const [desktopPreviewMode, setDesktopPreviewMode] = useState<'split' | 'drawer'>('drawer');
+    const [desktopPreviewOpen, setDesktopPreviewOpen] = useState(true);
     const [scrollSyncEnabled, setScrollSyncEnabled] = useState(true);
     const previewRef = useRef<HTMLDivElement>(null);
     const editorScrollRef = useRef<HTMLTextAreaElement>(null);
@@ -195,6 +197,7 @@ export default function App() {
     };
 
     const gridLayoutClass = () => {
+        if (desktopPreviewMode === 'drawer') return 'md:grid-cols-1';
         if (previewDevice === 'mobile') return 'md:grid-cols-[55fr_45fr]';
         if (previewDevice === 'tablet') return 'md:grid-cols-[45fr_55fr]';
         return 'md:grid-cols-[38.2fr_61.8fr]';
@@ -230,7 +233,11 @@ export default function App() {
                 <ThemeSelector activeTheme={activeTheme} onThemeChange={setActiveTheme} />
                 <Toolbar
                     previewDevice={previewDevice}
+                    desktopPreviewMode={desktopPreviewMode}
+                    desktopPreviewOpen={desktopPreviewOpen}
                     onDeviceChange={setPreviewDevice}
+                    onDesktopPreviewModeChange={setDesktopPreviewMode}
+                    onToggleDesktopPreview={() => setDesktopPreviewOpen((prev) => !prev)}
                     onExportPdf={handleExportPdf}
                     onExportHtml={handleExportHtml}
                     onCopy={handleCopy}
@@ -248,7 +255,11 @@ export default function App() {
                 </div>
                 <Toolbar
                     previewDevice={previewDevice}
+                    desktopPreviewMode={desktopPreviewMode}
+                    desktopPreviewOpen={desktopPreviewOpen}
                     onDeviceChange={setPreviewDevice}
+                    onDesktopPreviewModeChange={setDesktopPreviewMode}
+                    onToggleDesktopPreview={() => setDesktopPreviewOpen((prev) => !prev)}
                     onExportPdf={handleExportPdf}
                     onExportHtml={handleExportHtml}
                     onCopy={handleCopy}
@@ -270,7 +281,7 @@ export default function App() {
                         scrollSyncEnabled={scrollSyncEnabled}
                     />
                 </div>
-                <div className={`${activePanel === 'preview' ? 'flex' : 'hidden'} md:flex flex-col overflow-hidden`}>
+                <div className={`${activePanel === 'preview' ? 'flex' : 'hidden'} ${desktopPreviewMode === 'split' ? 'md:flex' : 'md:hidden'} flex-col overflow-hidden`}>
                     <PreviewPanel
                         renderedHtml={renderedHtml}
                         deviceWidthClass={deviceWidthClass()}
@@ -283,6 +294,43 @@ export default function App() {
                         scrollSyncEnabled={scrollSyncEnabled}
                     />
                 </div>
+
+                {desktopPreviewMode === 'drawer' && (
+                    <div
+                        className={`hidden md:flex absolute inset-y-0 right-0 z-40 pointer-events-none transition-transform duration-300 ease-out ${desktopPreviewOpen ? 'translate-x-0' : 'translate-x-[calc(100%-44px)]'}`}
+                    >
+                        <div className="pointer-events-auto flex items-center">
+                            <button
+                                type="button"
+                                data-testid="desktop-drawer-edge-toggle"
+                                onClick={() => setDesktopPreviewOpen((prev) => !prev)}
+                                className="h-28 w-11 rounded-l-2xl border border-r-0 border-[#00000010] bg-white/92 text-[#3a4a69] shadow-[0_12px_30px_rgba(15,23,42,0.16)] backdrop-blur-xl transition hover:text-[#0066cc] dark:border-[#ffffff15] dark:bg-[#1c1c1e]/92 dark:text-[#d2d2d7] dark:hover:text-[#0a84ff]"
+                                aria-label={desktopPreviewOpen ? '收起右侧预览窗' : '展开右侧预览窗'}
+                            >
+                                <div className="flex h-full flex-col items-center justify-center gap-2">
+                                    <Eye size={16} />
+                                    <span className="[writing-mode:vertical-rl] text-[11px] font-semibold tracking-[0.18em]">
+                                        预览
+                                    </span>
+                                </div>
+                            </button>
+                        </div>
+
+                        <div className="pointer-events-auto h-full w-[min(44vw,760px)] max-w-[92vw] border-l border-[#00000010] bg-white/82 shadow-[-24px_0_60px_rgba(15,23,42,0.14)] backdrop-blur-2xl dark:border-[#ffffff10] dark:bg-[#0b0b0d]/88">
+                            <PreviewPanel
+                                renderedHtml={renderedHtml}
+                                deviceWidthClass={deviceWidthClass()}
+                                previewDevice={previewDevice}
+                                previewRef={previewRef}
+                                previewOuterScrollRef={previewOuterScrollRef}
+                                previewInnerScrollRef={previewInnerScrollRef}
+                                onPreviewOuterScroll={handlePreviewOuterScroll}
+                                onPreviewInnerScroll={handlePreviewInnerScroll}
+                                scrollSyncEnabled={scrollSyncEnabled}
+                            />
+                        </div>
+                    </div>
+                )}
             </main>
 
         </div>
