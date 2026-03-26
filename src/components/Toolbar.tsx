@@ -35,32 +35,34 @@ export default function Toolbar({
     return (
         <div className="flex items-center justify-between gap-4 px-4 sm:px-6 py-3 max-w-[1024px]">
             <div className="hidden md:flex items-center gap-3">
-                <div className="flex bg-[#00000008] dark:bg-[#ffffff10] p-1 rounded-full backdrop-blur-md">
-                    <button
-                        data-testid="device-mobile"
-                        onClick={() => onDeviceChange('mobile')}
-                        className={`p-2 rounded-full transition-all ${previewDevice === 'mobile' ? 'bg-white dark:bg-[#2c2c2e] shadow-sm' : 'text-[#86868b] dark:text-[#a1a1a6] hover:text-[#1d1d1f] dark:hover:text-[#f5f5f7]'}`}
-                        title="手机视图 (480px)"
-                    >
-                        <Smartphone size={16} />
-                    </button>
-                    <button
-                        data-testid="device-tablet"
-                        onClick={() => onDeviceChange('tablet')}
-                        className={`p-2 rounded-full transition-all ${previewDevice === 'tablet' ? 'bg-white dark:bg-[#2c2c2e] shadow-sm' : 'text-[#86868b] dark:text-[#a1a1a6] hover:text-[#1d1d1f] dark:hover:text-[#f5f5f7]'}`}
-                        title="平板视图 (768px)"
-                    >
-                        <Tablet size={16} />
-                    </button>
-                    <button
-                        data-testid="device-pc"
-                        onClick={() => onDeviceChange('pc')}
-                        className={`p-2 rounded-full transition-all ${previewDevice === 'pc' ? 'bg-white dark:bg-[#2c2c2e] shadow-sm' : 'text-[#86868b] dark:text-[#a1a1a6] hover:text-[#1d1d1f] dark:hover:text-[#f5f5f7]'}`}
-                        title="桌面视图 (PC)"
-                    >
-                        <Monitor size={16} />
-                    </button>
-                </div>
+                {desktopPreviewMode === 'split' && (
+                    <div className="flex bg-[#00000008] dark:bg-[#ffffff10] p-1 rounded-full backdrop-blur-md">
+                        <button
+                            data-testid="device-mobile"
+                            onClick={() => onDeviceChange('mobile')}
+                            className={`p-2 rounded-full transition-all ${previewDevice === 'mobile' ? 'bg-white dark:bg-[#2c2c2e] shadow-sm' : 'text-[#86868b] dark:text-[#a1a1a6] hover:text-[#1d1d1f] dark:hover:text-[#f5f5f7]'}`}
+                            title="手机视图 (480px)"
+                        >
+                            <Smartphone size={16} />
+                        </button>
+                        <button
+                            data-testid="device-tablet"
+                            onClick={() => onDeviceChange('tablet')}
+                            className={`p-2 rounded-full transition-all ${previewDevice === 'tablet' ? 'bg-white dark:bg-[#2c2c2e] shadow-sm' : 'text-[#86868b] dark:text-[#a1a1a6] hover:text-[#1d1d1f] dark:hover:text-[#f5f5f7]'}`}
+                            title="平板视图 (768px)"
+                        >
+                            <Tablet size={16} />
+                        </button>
+                        <button
+                            data-testid="device-pc"
+                            onClick={() => onDeviceChange('pc')}
+                            className={`p-2 rounded-full transition-all ${previewDevice === 'pc' ? 'bg-white dark:bg-[#2c2c2e] shadow-sm' : 'text-[#86868b] dark:text-[#a1a1a6] hover:text-[#1d1d1f] dark:hover:text-[#f5f5f7]'}`}
+                            title="桌面视图 (PC)"
+                        >
+                            <Monitor size={16} />
+                        </button>
+                    </div>
+                )}
 
                 <div className="flex bg-[#00000008] dark:bg-[#ffffff10] p-1 rounded-full backdrop-blur-md">
                     <button

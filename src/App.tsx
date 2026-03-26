@@ -20,7 +20,7 @@ export default function App() {
     const [isCopying, setIsCopying] = useState(false);
     const [previewDevice, setPreviewDevice] = useState<'mobile' | 'tablet' | 'pc'>('pc');
     const [activePanel, setActivePanel] = useState<'editor' | 'preview'>('editor');
-    const [desktopPreviewMode, setDesktopPreviewMode] = useState<'split' | 'drawer'>('drawer');
+    const [desktopPreviewMode, setDesktopPreviewMode] = useState<'split' | 'drawer'>('split');
     const [desktopPreviewOpen, setDesktopPreviewOpen] = useState(true);
     const [scrollSyncEnabled, setScrollSyncEnabled] = useState(true);
     const previewRef = useRef<HTMLDivElement>(null);
