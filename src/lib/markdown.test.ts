@@ -39,4 +39,30 @@ describe('applyTheme', () => {
         expect(grid).not.toBeNull();
         expect(grid?.querySelectorAll('img')).toHaveLength(2);
     });
+
+    it('keeps highlighted comments non-italic for apple', () => {
+        const rawHtml = renderMarkdown('```javascript\n// 中文注释\nconst raphael = 1;\n```');
+        const themed = applyTheme(rawHtml, 'apple');
+        const doc = new DOMParser().parseFromString(themed, 'text/html');
+        const code = doc.querySelector('pre code');
+        const comment = doc.querySelector('.hljs-comment');
+
+        expect(code?.getAttribute('style')).toContain('font-style: normal !important;');
+        expect(code?.getAttribute('style')).toContain('white-space: pre;');
+        expect(comment?.getAttribute('style')).toContain('font-style: normal;');
+    });
+
+    it('does not override bloomberg block-code font inheritance', () => {
+        const rawHtml = renderMarkdown('```javascript\n// terminal theme\nconst raphael = 1;\n```');
+        const themed = applyTheme(rawHtml, 'bloomberg');
+        const doc = new DOMParser().parseFromString(themed, 'text/html');
+        const container = doc.querySelector('body > div');
+        const pre = doc.querySelector('pre');
+        const code = doc.querySelector('pre code');
+
+        expect(container?.getAttribute('style')).toContain('"Courier New"');
+        expect(pre?.getAttribute('style')).not.toContain('font-family:');
+        expect(code?.getAttribute('style')).not.toContain('font-family:');
+        expect(themed).not.toContain('"SF Mono", "Cascadia Code", "Fira Code", Consolas, Menlo, Monaco, monospace');
+    });
 });

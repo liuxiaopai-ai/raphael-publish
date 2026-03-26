@@ -162,8 +162,8 @@ export function applyTheme(html: string, themeId: string) {
     });
 
     const hljsLight: Record<string, string> = {
-        'hljs-comment': 'color: #6a737d; font-style: italic;',
-        'hljs-quote': 'color: #6a737d; font-style: italic;',
+        'hljs-comment': 'color: #6a737d; font-style: normal;',
+        'hljs-quote': 'color: #6a737d; font-style: normal;',
         'hljs-keyword': 'color: #d73a49; font-weight: 600;',
         'hljs-selector-tag': 'color: #d73a49; font-weight: 600;',
         'hljs-string': 'color: #032f62;',
@@ -192,6 +192,22 @@ export function applyTheme(html: string, themeId: string) {
         if (inlineStyle) {
             span.setAttribute('style', inlineStyle);
         }
+    });
+
+    doc.querySelectorAll('pre').forEach(pre => {
+        const currentStyle = pre.getAttribute('style') || '';
+        pre.setAttribute(
+            'style',
+            `${currentStyle}; font-variant-ligatures: none; tab-size: 2;`
+        );
+    });
+
+    doc.querySelectorAll('pre code, pre .hljs, .hljs').forEach(codeNode => {
+        const currentStyle = codeNode.getAttribute('style') || '';
+        codeNode.setAttribute(
+            'style',
+            `${currentStyle}; display: block; font-size: inherit !important; line-height: inherit !important; font-style: normal !important; white-space: pre; word-break: normal; overflow-wrap: normal;`
+        );
     });
 
     const headings = doc.querySelectorAll('h1, h2, h3, h4, h5, h6');

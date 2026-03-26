@@ -4,24 +4,78 @@ function buildLongMarkdown() {
     return Array.from({ length: 120 }, (_, index) => `## Section ${index + 1}\n\n这是第 ${index + 1} 段内容，用来验证编辑器和预览区的滚动同步是否稳定。\n\n`).join('');
 }
 
-async function waitForScrollRatiosToAlign(page: import('@playwright/test').Page, sourceTestId: string, targetTestId: string) {
-    await page.waitForFunction(
-        ([sourceId, targetId]) => {
-            const source = document.querySelector(`[data-testid="${sourceId}"]`) as HTMLElement | null;
-            const target = document.querySelector(`[data-testid="${targetId}"]`) as HTMLElement | null;
-            if (!source || !target) return false;
+async function waitForScrollableArea(page: import('@playwright/test').Page, testId: string) {
+    await expect
+        .poll(
+            async () =>
+                page.evaluate((id) => {
+                    const element = document.querySelector(`[data-testid="${id}"]`) as HTMLElement | null;
+                    if (!element) return -1;
+                    return element.scrollHeight - element.clientHeight;
+                }, testId),
+            {
+                timeout: 8000,
+                intervals: [100, 150, 250]
+            }
+        )
+        .toBeGreaterThan(200);
+}
 
-            const sourceMax = source.scrollHeight - source.clientHeight;
-            const targetMax = target.scrollHeight - target.clientHeight;
-            if (sourceMax <= 0 || targetMax <= 0) return false;
+async function setScrollRatio(page: import('@playwright/test').Page, testId: string, ratio: number) {
+    await page.evaluate(
+        ([id, nextRatio]) => {
+            const element = document.querySelector(`[data-testid="${id}"]`) as HTMLElement | null;
+            if (!element) return;
 
-            const sourceRatio = source.scrollTop / sourceMax;
-            const targetRatio = target.scrollTop / targetMax;
+            const maxScroll = element.scrollHeight - element.clientHeight;
+            if (maxScroll <= 0) {
+                element.scrollTop = 0;
+                return;
+            }
 
-            return target.scrollTop > 0 && Math.abs(sourceRatio - targetRatio) < 0.12;
+            element.scrollTop = maxScroll * nextRatio;
+            element.dispatchEvent(new Event('scroll'));
         },
-        [sourceTestId, targetTestId]
+        [testId, ratio] as const
     );
+}
+
+async function scrollAndWaitForSync(
+    page: import('@playwright/test').Page,
+    sourceTestId: string,
+    targetTestId: string,
+    targetRatio: number
+) {
+    await expect
+        .poll(
+            async () => {
+                await setScrollRatio(page, sourceTestId, targetRatio);
+
+                return page.evaluate(([sourceId, targetId, expectedRatio]) => {
+                    const source = document.querySelector(`[data-testid="${sourceId}"]`) as HTMLElement | null;
+                    const target = document.querySelector(`[data-testid="${targetId}"]`) as HTMLElement | null;
+                    if (!source || !target) return Number.POSITIVE_INFINITY;
+
+                    const sourceMax = source.scrollHeight - source.clientHeight;
+                    const targetMax = target.scrollHeight - target.clientHeight;
+                    if (sourceMax <= 0 || targetMax <= 0) return Number.POSITIVE_INFINITY;
+
+                    const sourceRatio = source.scrollTop / sourceMax;
+                    const targetRatio = target.scrollTop / targetMax;
+
+                    if (Math.abs(sourceRatio - expectedRatio) >= 0.06 || target.scrollTop <= 0) {
+                        return Number.POSITIVE_INFINITY;
+                    }
+
+                    return Math.abs(targetRatio - expectedRatio);
+                }, [sourceTestId, targetTestId, targetRatio] as const);
+            },
+            {
+                timeout: 8000,
+                intervals: [100, 150, 250]
+            }
+        )
+        .toBeLessThan(0.12);
 }
 
 test('keeps the copy button visible on mobile', async ({ page }) => {
@@ -62,25 +116,10 @@ for (const device of [
         const editor = page.getByTestId('editor-input');
         await editor.fill(buildLongMarkdown());
         await page.locator(`[data-testid="${device.testId}"]:visible`).click();
+        await waitForScrollableArea(page, 'editor-input');
+        await waitForScrollableArea(page, 'preview-inner-scroll');
 
-        await page.evaluate(() => {
-            const textarea = document.querySelector('[data-testid="editor-input"]') as HTMLTextAreaElement | null;
-            if (!textarea) return;
-            const max = textarea.scrollHeight - textarea.clientHeight;
-            textarea.scrollTop = max * 0.72;
-            textarea.dispatchEvent(new Event('scroll'));
-        });
-
-        await waitForScrollRatiosToAlign(page, 'editor-input', 'preview-inner-scroll');
-
-        await page.evaluate(() => {
-            const preview = document.querySelector('[data-testid="preview-inner-scroll"]') as HTMLDivElement | null;
-            if (!preview) return;
-            const max = preview.scrollHeight - preview.clientHeight;
-            preview.scrollTop = max * 0.28;
-            preview.dispatchEvent(new Event('scroll'));
-        });
-
-        await waitForScrollRatiosToAlign(page, 'preview-inner-scroll', 'editor-input');
+        await scrollAndWaitForSync(page, 'editor-input', 'preview-inner-scroll', 0.72);
+        await scrollAndWaitForSync(page, 'preview-inner-scroll', 'editor-input', 0.28);
     });
 }
