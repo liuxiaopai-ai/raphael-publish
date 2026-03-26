@@ -281,19 +281,21 @@ export default function App() {
                         scrollSyncEnabled={scrollSyncEnabled}
                     />
                 </div>
-                <div className={`${activePanel === 'preview' ? 'flex' : 'hidden'} ${desktopPreviewMode === 'split' ? 'md:flex' : 'md:hidden'} flex-col overflow-hidden`}>
-                    <PreviewPanel
-                        renderedHtml={renderedHtml}
-                        deviceWidthClass={deviceWidthClass()}
-                        previewDevice={previewDevice}
-                        previewRef={previewRef}
-                        previewOuterScrollRef={previewOuterScrollRef}
-                        previewInnerScrollRef={previewInnerScrollRef}
-                        onPreviewOuterScroll={handlePreviewOuterScroll}
-                        onPreviewInnerScroll={handlePreviewInnerScroll}
-                        scrollSyncEnabled={scrollSyncEnabled}
-                    />
-                </div>
+                {(activePanel === 'preview' || desktopPreviewMode === 'split') && (
+                    <div className={`${activePanel === 'preview' ? 'flex' : 'hidden'} ${desktopPreviewMode === 'split' ? 'md:flex' : 'md:hidden'} flex-col overflow-hidden`}>
+                        <PreviewPanel
+                            renderedHtml={renderedHtml}
+                            deviceWidthClass={deviceWidthClass()}
+                            previewDevice={previewDevice}
+                            previewRef={previewRef}
+                            previewOuterScrollRef={previewOuterScrollRef}
+                            previewInnerScrollRef={previewInnerScrollRef}
+                            onPreviewOuterScroll={handlePreviewOuterScroll}
+                            onPreviewInnerScroll={handlePreviewInnerScroll}
+                            scrollSyncEnabled={scrollSyncEnabled}
+                        />
+                    </div>
+                )}
 
                 {desktopPreviewMode === 'drawer' && (
                     <div
