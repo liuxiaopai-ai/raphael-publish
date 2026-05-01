@@ -21,6 +21,10 @@ async function waitForScrollableArea(page: import('@playwright/test').Page, test
         .toBeGreaterThan(200);
 }
 
+async function gotoApp(page: import('@playwright/test').Page) {
+    await page.goto('/', { waitUntil: 'domcontentloaded' });
+}
+
 async function setScrollRatio(page: import('@playwright/test').Page, testId: string, ratio: number) {
     await page.evaluate(
         ([id, nextRatio]) => {
@@ -80,7 +84,7 @@ async function scrollAndWaitForSync(
 
 test('keeps the copy button visible on mobile', async ({ page }) => {
     await page.setViewportSize({ width: 390, height: 844 });
-    await page.goto('/');
+    await gotoApp(page);
 
     await page.getByTestId('tab-preview').click();
     const copyButton = page.locator('[data-testid="copy-button"]:visible');
@@ -94,7 +98,7 @@ test('keeps the copy button visible on mobile', async ({ page }) => {
 });
 
 test('renders bold text with punctuation without leaking markdown markers', async ({ page }) => {
-    await page.goto('/');
+    await gotoApp(page);
 
     const editor = page.getByTestId('editor-input');
     await editor.fill('2025年初，伦敦黄金市场的一个月拆借利率一度升至**5%**。');
@@ -105,13 +109,27 @@ test('renders bold text with punctuation without leaking markdown markers', asyn
     await expect(preview).toContainText('2025年初，伦敦黄金市场的一个月拆借利率一度升至5%。');
 });
 
+test('renders base64 image markdown without leaking data url text', async ({ page }) => {
+    await gotoApp(page);
+
+    const dataUrl = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+/p9sAAAAASUVORK5CYII=';
+    const editor = page.getByTestId('editor-input');
+    await editor.fill(`# 标题\n\n![图片](${dataUrl})\n\n正文`);
+
+    const preview = page.getByTestId('preview-content');
+    const image = preview.locator('img');
+
+    await expect(image).toHaveAttribute('src', dataUrl);
+    await expect(preview).not.toContainText('data:image/png;base64');
+});
+
 for (const device of [
     { testId: 'device-mobile', label: 'mobile' },
     { testId: 'device-tablet', label: 'tablet' }
 ] as const) {
     test(`syncs editor and ${device.label} preview scrolling in both directions`, async ({ page }) => {
         await page.setViewportSize({ width: 1440, height: 900 });
-        await page.goto('/');
+        await gotoApp(page);
 
         const editor = page.getByTestId('editor-input');
         await editor.fill(buildLongMarkdown());

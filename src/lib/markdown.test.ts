@@ -29,6 +29,24 @@ describe('preprocessMarkdown', () => {
     });
 });
 
+describe('markdown image rendering', () => {
+    it('renders pasted base64 image markdown as an image', () => {
+        const dataUrl = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+/p9sAAAAASUVORK5CYII=';
+        const html = renderMarkdown(`![图片](${dataUrl})`);
+        const doc = new DOMParser().parseFromString(html, 'text/html');
+        const image = doc.querySelector('img');
+
+        expect(image?.getAttribute('src')).toBe(dataUrl);
+        expect(doc.body.textContent).not.toContain('base64');
+    });
+
+    it('does not allow arbitrary data urls', () => {
+        const html = renderMarkdown('![图片](data:text/html;base64,PHNjcmlwdD5hbGVydCgxKTwvc2NyaXB0Pg==)');
+
+        expect(html).not.toContain('<img');
+    });
+});
+
 describe('applyTheme', () => {
     it('groups consecutive standalone images into an image grid', () => {
         const html = '<p><img src="a.png" /></p><p><img src="b.png" /></p>';

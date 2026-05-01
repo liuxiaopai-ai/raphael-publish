@@ -25,6 +25,13 @@ export const md = new MarkdownIt({
     }
 });
 
+const defaultValidateLink = md.validateLink.bind(md);
+const safeDataImagePattern = /^data:image\/(?:png|jpe?g|gif|webp|bmp);base64,[a-z0-9+/=\s]+$/i;
+
+md.validateLink = (url: string) => {
+    return defaultValidateLink(url) || safeDataImagePattern.test(url);
+};
+
 // Avoid bold fragmentation when pasting from certain apps
 export function preprocessMarkdown(content: string) {
     content = content.replace(/^[ ]{0,3}(\*[ ]*\*[ ]*\*[\* ]*)[ \t]*$/gm, '***');
