@@ -27,6 +27,7 @@ export const md = new MarkdownIt({
 
 const defaultValidateLink = md.validateLink.bind(md);
 const safeDataImagePattern = /^data:image\/(?:png|jpe?g|gif|webp|bmp);base64,[a-z0-9+/=\s]+$/i;
+const dataImageUrlPattern = /data:image\/(?:png|jpe?g|gif|webp|bmp);base64,[^)]+/gi;
 
 md.validateLink = (url: string) => {
     return defaultValidateLink(url) || safeDataImagePattern.test(url);
@@ -34,6 +35,15 @@ md.validateLink = (url: string) => {
 
 // Avoid bold fragmentation when pasting from certain apps
 export function preprocessMarkdown(content: string) {
+    // Some rich-text paste paths split image markdown into:
+    // ![图片]
+    // (data:image/png;base64,...)
+    // Normalize that back into a valid Markdown image before rendering.
+    content = content.replace(
+        /!\[([^\]\n]*)\][ \t]*\n[ \t]*\((data:image\/(?:png|jpe?g|gif|webp|bmp);base64,[^)]+)\)/gi,
+        (_match, alt, url) => `![${alt}](${String(url).replace(/\s+/g, '')})`
+    );
+    content = content.replace(dataImageUrlPattern, (url) => url.replace(/\s+/g, ''));
     content = content.replace(/^[ ]{0,3}(\*[ ]*\*[ ]*\*[\* ]*)[ \t]*$/gm, '***');
     content = content.replace(/^[ ]{0,3}(-[ ]*-[ ]*-[- ]*)[ \t]*$/gm, '---');
     content = content.replace(/^[ ]{0,3}(_[ ]*_[ ]*_[_ ]*)[ \t]*$/gm, '___');

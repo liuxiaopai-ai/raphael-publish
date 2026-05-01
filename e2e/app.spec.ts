@@ -123,6 +123,20 @@ test('renders base64 image markdown without leaking data url text', async ({ pag
     await expect(preview).not.toContainText('data:image/png;base64');
 });
 
+test('repairs split base64 image markdown without leaking data url text', async ({ page }) => {
+    await gotoApp(page);
+
+    const dataUrl = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+/p9sAAAAASUVORK5CYII=';
+    const editor = page.getByTestId('editor-input');
+    await editor.fill(`# 标题\n\n![图片]\n(${dataUrl})\n\n正文`);
+
+    const preview = page.getByTestId('preview-content');
+    const image = preview.locator('img');
+
+    await expect(image).toHaveAttribute('src', dataUrl);
+    await expect(preview).not.toContainText('data:image/png;base64');
+});
+
 for (const device of [
     { testId: 'device-mobile', label: 'mobile' },
     { testId: 'device-tablet', label: 'tablet' }
