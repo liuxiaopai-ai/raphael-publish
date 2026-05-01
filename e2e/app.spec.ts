@@ -137,6 +137,31 @@ test('repairs split base64 image markdown without leaking data url text', async 
     await expect(preview).not.toContainText('data:image/png;base64');
 });
 
+test('compacts pasted base64 image markdown in the editor', async ({ page }) => {
+    await gotoApp(page);
+
+    const dataUrl = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+/p9sAAAAASUVORK5CYII=';
+    const editor = page.getByTestId('editor-input');
+    await editor.focus();
+    await page.evaluate((text) => {
+        const textarea = document.querySelector('[data-testid="editor-input"]') as HTMLTextAreaElement;
+        const dataTransfer = new DataTransfer();
+        dataTransfer.setData('text/plain', text);
+        const event = new ClipboardEvent('paste', {
+            clipboardData: dataTransfer,
+            bubbles: true,
+            cancelable: true
+        });
+        textarea.dispatchEvent(event);
+    }, `![图片]\n(${dataUrl})`);
+
+    await expect(editor).toHaveValue(/!\[图片\]\(blob:/);
+    await expect(editor).not.toHaveValue(/data:image\/png;base64/);
+
+    const preview = page.getByTestId('preview-content');
+    await expect(preview.locator('img').first()).toHaveAttribute('src', /blob:/);
+});
+
 for (const device of [
     { testId: 'device-mobile', label: 'mobile' },
     { testId: 'device-tablet', label: 'tablet' }

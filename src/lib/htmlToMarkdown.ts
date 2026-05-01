@@ -98,6 +98,44 @@ function fileToDataUrl(file: File): Promise<string> {
     });
 }
 
+const dataImageMarkdownPattern = /!\[([^\]\n]*)\]\((data:image\/(?:png|jpe?g|gif|webp|bmp);base64,[^)]+)\)/gi;
+const splitDataImageMarkdownPattern = /!\[([^\]\n]*)\][ \t]*(?:\r?\n[ \t]*)+\((data:image\/(?:png|jpe?g|gif|webp|bmp);base64,[^)]+)\)/gi;
+
+function hasDataImageMarkdown(markdown: string): boolean {
+    dataImageMarkdownPattern.lastIndex = 0;
+    splitDataImageMarkdownPattern.lastIndex = 0;
+    return dataImageMarkdownPattern.test(markdown) || splitDataImageMarkdownPattern.test(markdown);
+}
+
+function dataUrlToObjectUrl(dataUrl: string): string {
+    const cleanDataUrl = dataUrl.replace(/\s+/g, '');
+    const [metadata, data] = cleanDataUrl.split(',');
+    const mime = metadata.match(/^data:([^;]+);base64$/i)?.[1] || 'image/png';
+    const binary = atob(data);
+    const bytes = new Uint8Array(binary.length);
+
+    for (let i = 0; i < binary.length; i += 1) {
+        bytes[i] = binary.charCodeAt(i);
+    }
+
+    return URL.createObjectURL(new Blob([bytes], { type: mime }));
+}
+
+export function compactDataImageMarkdown(markdown: string): string {
+    const compact = (_match: string, alt: string, src: string) => {
+        try {
+            return `![${alt || '图片'}](${dataUrlToObjectUrl(src)})`;
+        } catch (err) {
+            console.error('Data image compaction failed:', err);
+            return `![${alt || '图片'}](${String(src).replace(/\s+/g, '')})`;
+        }
+    };
+
+    return markdown
+        .replace(splitDataImageMarkdownPattern, compact)
+        .replace(dataImageMarkdownPattern, compact);
+}
+
 export function insertAtSelection(
     textarea: HTMLTextAreaElement,
     insertedText: string,
@@ -135,7 +173,10 @@ export function handleSmartPaste(
             .then((dataUrls) => {
                 const markdownImages = dataUrls
                     .filter(Boolean)
-                    .map((src, index) => `![图片${dataUrls.length > 1 ? ` ${index + 1}` : ''}](${src})`)
+                    .map((src, index) => {
+                        const displaySrc = dataUrlToObjectUrl(src);
+                        return `![图片${dataUrls.length > 1 ? ` ${index + 1}` : ''}](${displaySrc})`;
+                    })
                     .join('\n\n');
 
                 if (!markdownImages) return;
@@ -150,6 +191,13 @@ export function handleSmartPaste(
 
     if (textData && /^\[Image\s*#?\d*\]$/i.test(textData.trim())) {
         e.preventDefault();
+        return;
+    }
+
+    if (textData && hasDataImageMarkdown(textData)) {
+        e.preventDefault();
+        const textarea = e.currentTarget;
+        insertAtSelection(textarea, compactDataImageMarkdown(textData), setMarkdownInput);
         return;
     }
 
@@ -176,6 +224,7 @@ export function handleSmartPaste(
         try {
             let markdown = turndownService.turndown(htmlData);
             markdown = markdown.replace(/\n{3,}/g, '\n\n');
+            markdown = compactDataImageMarkdown(markdown);
 
             const textarea = e.currentTarget;
             insertAtSelection(textarea, markdown, setMarkdownInput);
@@ -186,6 +235,12 @@ export function handleSmartPaste(
             insertAtSelection(textarea, textData, setMarkdownInput);
         }
     } else if (textData && isMarkdown(textData)) {
+        const compactedMarkdown = compactDataImageMarkdown(textData);
+        if (compactedMarkdown !== textData) {
+            e.preventDefault();
+            const textarea = e.currentTarget;
+            insertAtSelection(textarea, compactedMarkdown, setMarkdownInput);
+        }
         return;
     }
 }

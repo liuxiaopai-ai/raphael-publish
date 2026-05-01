@@ -38,6 +38,16 @@ describe('preprocessMarkdown', () => {
         expect(doc.body.textContent).not.toContain('data:image/png;base64');
     });
 
+    it('repairs data image markdown split by blank lines', () => {
+        const dataUrl = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+/p9sAAAAASUVORK5CYII=';
+        const html = renderMarkdown(`![图片]\n\n   \n(${dataUrl})`);
+        const doc = new DOMParser().parseFromString(html, 'text/html');
+        const image = doc.querySelector('img');
+
+        expect(image?.getAttribute('src')).toBe(dataUrl);
+        expect(doc.body.textContent).not.toContain('data:image/png;base64');
+    });
+
     it('repairs wrapped whitespace inside data image urls', () => {
         const wrapped = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8\nAAwMCAO+/p9sAAAAASUVORK5CYII=';
         const expected = wrapped.replace(/\s+/g, '');

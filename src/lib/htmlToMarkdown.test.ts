@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { insertAtSelection } from './htmlToMarkdown';
+import { compactDataImageMarkdown, insertAtSelection } from './htmlToMarkdown';
 
 describe('insertAtSelection', () => {
     beforeEach(() => {
@@ -49,5 +49,29 @@ describe('insertAtSelection', () => {
 
         expect(textarea.selectionStart).toBe('hello Raphael'.length);
         expect(textarea.selectionEnd).toBe('hello Raphael'.length);
+    });
+});
+
+describe('compactDataImageMarkdown', () => {
+    const createObjectUrl = URL.createObjectURL;
+
+    beforeEach(() => {
+        URL.createObjectURL = vi.fn(() => 'blob:http://localhost/image-1');
+    });
+
+    afterEach(() => {
+        URL.createObjectURL = createObjectUrl;
+    });
+
+    it('replaces inline data image markdown with a blob url', () => {
+        const markdown = '![图片](data:image/png;base64,AAAA)';
+
+        expect(compactDataImageMarkdown(markdown)).toBe('![图片](blob:http://localhost/image-1)');
+    });
+
+    it('replaces split data image markdown with a blob url', () => {
+        const markdown = '![图片]\n(data:image/png;base64,AAAA)';
+
+        expect(compactDataImageMarkdown(markdown)).toBe('![图片](blob:http://localhost/image-1)');
     });
 });

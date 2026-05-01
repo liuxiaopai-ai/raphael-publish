@@ -40,7 +40,7 @@ export function preprocessMarkdown(content: string) {
     // (data:image/png;base64,...)
     // Normalize that back into a valid Markdown image before rendering.
     content = content.replace(
-        /!\[([^\]\n]*)\][ \t]*\n[ \t]*\((data:image\/(?:png|jpe?g|gif|webp|bmp);base64,[^)]+)\)/gi,
+        /!\[([^\]\n]*)\][ \t]*(?:\r?\n[ \t]*)+\((data:image\/(?:png|jpe?g|gif|webp|bmp);base64,[^)]+)\)/gi,
         (_match, alt, url) => `![${alt}](${String(url).replace(/\s+/g, '')})`
     );
     content = content.replace(dataImageUrlPattern, (url) => url.replace(/\s+/g, ''));
