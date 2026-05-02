@@ -14,9 +14,38 @@ import Toolbar from './components/Toolbar';
 import EditorPanel from './components/EditorPanel';
 import PreviewPanel from './components/PreviewPanel';
 
+const MARKDOWN_CACHE_KEY = 'raphael-publish:markdown-input';
+const MARKDOWN_PERSIST_DEBOUNCE_MS = 300;
+
+function persistMarkdownInput(value: string) {
+    try {
+        if (value === '') {
+            window.localStorage.removeItem(MARKDOWN_CACHE_KEY);
+            return;
+        }
+
+        window.localStorage.setItem(MARKDOWN_CACHE_KEY, value);
+    } catch (error) {
+        console.error('Persist markdown failed', error);
+    }
+}
+
+function getInitialMarkdownInput() {
+    if (typeof window === 'undefined') return defaultContent;
+
+    try {
+        const cachedMarkdown = window.localStorage.getItem(MARKDOWN_CACHE_KEY);
+        if (cachedMarkdown === '') return defaultContent;
+        return cachedMarkdown ?? defaultContent;
+    } catch (error) {
+        console.error('Load cached markdown failed', error);
+        return defaultContent;
+    }
+}
+
 export default function App() {
     const [themeMode, setThemeMode] = useState<'light' | 'dark'>('light');
-    const [markdownInput, setMarkdownInput] = useState<string>(defaultContent);
+    const [markdownInput, setMarkdownInput] = useState<string>(getInitialMarkdownInput);
     const [renderedHtml, setRenderedHtml] = useState<string>('');
     const [activeTheme, setActiveTheme] = useState(THEMES[0].id);
     const [copied, setCopied] = useState(false);
@@ -30,10 +59,60 @@ export default function App() {
     const previewInnerScrollRef = useRef<HTMLDivElement>(null);
     const scrollSyncLockRef = useRef<'editor' | 'preview' | null>(null);
     const scrollLockReleaseTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+    const markdownInputRef = useRef(markdownInput);
+    const markdownPersistTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
     useEffect(() => {
         // Enforce light mode as default, do not follow system preferences
     }, []);
+
+    useEffect(() => {
+        markdownInputRef.current = markdownInput;
+    }, [markdownInput]);
+
+    const flushMarkdownInput = useCallback(() => {
+        if (markdownPersistTimeoutRef.current) {
+            clearTimeout(markdownPersistTimeoutRef.current);
+            markdownPersistTimeoutRef.current = null;
+        }
+
+        persistMarkdownInput(markdownInputRef.current);
+    }, []);
+
+    useEffect(() => {
+        if (markdownPersistTimeoutRef.current) {
+            clearTimeout(markdownPersistTimeoutRef.current);
+        }
+
+        markdownPersistTimeoutRef.current = setTimeout(() => {
+            persistMarkdownInput(markdownInput);
+            markdownPersistTimeoutRef.current = null;
+        }, MARKDOWN_PERSIST_DEBOUNCE_MS);
+
+        return () => {
+            if (markdownPersistTimeoutRef.current) {
+                clearTimeout(markdownPersistTimeoutRef.current);
+                markdownPersistTimeoutRef.current = null;
+            }
+        };
+    }, [markdownInput]);
+
+    useEffect(() => {
+        const handleVisibilityChange = () => {
+            if (document.visibilityState === 'hidden') {
+                flushMarkdownInput();
+            }
+        };
+
+        window.addEventListener('blur', flushMarkdownInput);
+        document.addEventListener('visibilitychange', handleVisibilityChange);
+
+        return () => {
+            window.removeEventListener('blur', flushMarkdownInput);
+            document.removeEventListener('visibilitychange', handleVisibilityChange);
+            flushMarkdownInput();
+        };
+    }, [flushMarkdownInput]);
 
     const toggleTheme = () => {
         setThemeMode((prev) => {
