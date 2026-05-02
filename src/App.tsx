@@ -3,7 +3,7 @@ import { PenLine, Eye } from 'lucide-react';
 import html2pdf from 'html2pdf.js';
 import { md, preprocessMarkdown, applyTheme } from './lib/markdown';
 import { markElementIndexes } from './lib/markdownIndexer';
-import { makeWeChatCompatible, cleanInternalAttributes } from './lib/wechatCompat';
+import { makeWeChatCompatible, cleanInternalAttributes, inlineImagesAsBase64, inlineImagesInHtml } from './lib/wechatCompat';
 import { THEMES } from './lib/themes';
 import { defaultContent } from './defaultContent';
 import { findImagePosition, selectTextAreaRange } from './lib/imageSelector';
@@ -14,9 +14,38 @@ import Toolbar from './components/Toolbar';
 import EditorPanel from './components/EditorPanel';
 import PreviewPanel from './components/PreviewPanel';
 
+const MARKDOWN_CACHE_KEY = 'raphael-publish:markdown-input';
+const MARKDOWN_PERSIST_DEBOUNCE_MS = 300;
+
+function persistMarkdownInput(value: string) {
+    try {
+        if (value === '') {
+            window.localStorage.removeItem(MARKDOWN_CACHE_KEY);
+            return;
+        }
+
+        window.localStorage.setItem(MARKDOWN_CACHE_KEY, value);
+    } catch (error) {
+        console.error('Persist markdown failed', error);
+    }
+}
+
+function getInitialMarkdownInput() {
+    if (typeof window === 'undefined') return defaultContent;
+
+    try {
+        const cachedMarkdown = window.localStorage.getItem(MARKDOWN_CACHE_KEY);
+        if (cachedMarkdown === '') return defaultContent;
+        return cachedMarkdown ?? defaultContent;
+    } catch (error) {
+        console.error('Load cached markdown failed', error);
+        return defaultContent;
+    }
+}
+
 export default function App() {
     const [themeMode, setThemeMode] = useState<'light' | 'dark'>('light');
-    const [markdownInput, setMarkdownInput] = useState<string>(defaultContent);
+    const [markdownInput, setMarkdownInput] = useState<string>(getInitialMarkdownInput);
     const [renderedHtml, setRenderedHtml] = useState<string>('');
     const [activeTheme, setActiveTheme] = useState(THEMES[0].id);
     const [copied, setCopied] = useState(false);
@@ -30,10 +59,60 @@ export default function App() {
     const previewInnerScrollRef = useRef<HTMLDivElement>(null);
     const scrollSyncLockRef = useRef<'editor' | 'preview' | null>(null);
     const scrollLockReleaseTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+    const markdownInputRef = useRef(markdownInput);
+    const markdownPersistTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
     useEffect(() => {
         // Enforce light mode as default, do not follow system preferences
     }, []);
+
+    useEffect(() => {
+        markdownInputRef.current = markdownInput;
+    }, [markdownInput]);
+
+    const flushMarkdownInput = useCallback(() => {
+        if (markdownPersistTimeoutRef.current) {
+            clearTimeout(markdownPersistTimeoutRef.current);
+            markdownPersistTimeoutRef.current = null;
+        }
+
+        persistMarkdownInput(markdownInputRef.current);
+    }, []);
+
+    useEffect(() => {
+        if (markdownPersistTimeoutRef.current) {
+            clearTimeout(markdownPersistTimeoutRef.current);
+        }
+
+        markdownPersistTimeoutRef.current = setTimeout(() => {
+            persistMarkdownInput(markdownInput);
+            markdownPersistTimeoutRef.current = null;
+        }, MARKDOWN_PERSIST_DEBOUNCE_MS);
+
+        return () => {
+            if (markdownPersistTimeoutRef.current) {
+                clearTimeout(markdownPersistTimeoutRef.current);
+                markdownPersistTimeoutRef.current = null;
+            }
+        };
+    }, [markdownInput]);
+
+    useEffect(() => {
+        const handleVisibilityChange = () => {
+            if (document.visibilityState === 'hidden') {
+                flushMarkdownInput();
+            }
+        };
+
+        window.addEventListener('blur', flushMarkdownInput);
+        document.addEventListener('visibilitychange', handleVisibilityChange);
+
+        return () => {
+            window.removeEventListener('blur', flushMarkdownInput);
+            document.removeEventListener('visibilitychange', handleVisibilityChange);
+            flushMarkdownInput();
+        };
+    }, [flushMarkdownInput]);
 
     const toggleTheme = () => {
         setThemeMode((prev) => {
@@ -145,7 +224,8 @@ export default function App() {
         if (!previewRef.current) return;
         setIsCopying(true);
         try {
-            const finalHtmlForCopy = await makeWeChatCompatible(renderedHtml, activeTheme);
+            const compatibleHtml = await makeWeChatCompatible(renderedHtml, activeTheme);
+            const finalHtmlForCopy = await inlineImagesInHtml(compatibleHtml);
 
             const blob = new Blob([finalHtmlForCopy], { type: 'text/html' });
             const textBlob = new Blob([previewRef.current.innerText], { type: 'text/plain' });
@@ -166,19 +246,24 @@ export default function App() {
         }
     };
 
-    const handleExportHtml = () => {
-        // Clean internal attributes before exporting
-        const cleanHtml = cleanInternalAttributes(renderedHtml);
-        const blob = new Blob([cleanHtml], { type: 'text/html;charset=utf-8' });
-        const url = URL.createObjectURL(blob);
-        const a = document.createElement('a');
-        a.href = url;
-        a.download = `Raphael_Article_${new Date().getTime()}.html`;
-        a.click();
-        URL.revokeObjectURL(url);
+    const handleExportHtml = async () => {
+        try {
+            const cleanHtml = cleanInternalAttributes(renderedHtml);
+            const exportHtml = await inlineImagesInHtml(cleanHtml);
+            const blob = new Blob([exportHtml], { type: 'text/html;charset=utf-8' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `Raphael_Article_${new Date().getTime()}.html`;
+            a.click();
+            URL.revokeObjectURL(url);
+        } catch (err) {
+            console.error('Export HTML failed', err);
+            alert('导出 HTML 失败，请重试');
+        }
     };
 
-    const handleExportPdf = () => {
+    const handleExportPdf = async () => {
         if (!previewRef.current) return;
         const element = previewRef.current;
         const opt = {
@@ -201,10 +286,18 @@ export default function App() {
         cloneContainer.style.background = document.documentElement.classList.contains('dark') ? '#000000' : '#ffffff';
         cloneContainer.appendChild(clonedElement);
 
-        document.body.appendChild(cloneContainer);
-        html2pdf().set(opt).from(cloneContainer).save().then(() => {
-            document.body.removeChild(cloneContainer);
-        });
+        try {
+            await inlineImagesAsBase64(cloneContainer);
+            document.body.appendChild(cloneContainer);
+            await html2pdf().set(opt).from(cloneContainer).save();
+        } catch (err) {
+            console.error('Export PDF failed', err);
+            alert('导出 PDF 失败，请重试');
+        } finally {
+            if (cloneContainer.parentNode) {
+                document.body.removeChild(cloneContainer);
+            }
+        }
     };
 
     const handleImageClick = useCallback((info: { type: string; index: number; src?: string; alt?: string; content?: string }) => {

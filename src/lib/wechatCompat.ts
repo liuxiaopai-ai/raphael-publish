@@ -13,7 +13,7 @@ export function cleanInternalAttributes(html: string): string {
 }
 
 // Helper to convert images to Base64
-async function getBase64Image(imgUrl: string): Promise<string> {
+export async function getBase64Image(imgUrl: string): Promise<string> {
     try {
         if (imgUrl.startsWith('data:')) return imgUrl;
 
@@ -21,6 +21,8 @@ async function getBase64Image(imgUrl: string): Promise<string> {
         if (!response.ok) return imgUrl;
 
         const blob = await response.blob();
+        if (!blob.type.startsWith('image/')) return imgUrl;
+
         return new Promise((resolve) => {
             const reader = new FileReader();
             reader.onloadend = () => resolve(reader.result as string);
@@ -30,6 +32,24 @@ async function getBase64Image(imgUrl: string): Promise<string> {
     } catch (e) {
         return imgUrl;
     }
+}
+
+export async function inlineImagesAsBase64(root: ParentNode): Promise<void> {
+    const imgs = Array.from(root.querySelectorAll('img'));
+    await Promise.all(imgs.map(async img => {
+        const src = img.getAttribute('src');
+        if (!src || src.startsWith('data:')) return;
+
+        const base64 = await getBase64Image(src);
+        img.setAttribute('src', base64);
+    }));
+}
+
+export async function inlineImagesInHtml(html: string): Promise<string> {
+    const parser = new DOMParser();
+    const doc = parser.parseFromString(html, 'text/html');
+    await inlineImagesAsBase64(doc);
+    return doc.body.innerHTML;
 }
 
 export async function makeWeChatCompatible(html: string, themeId: string): Promise<string> {
@@ -184,14 +204,7 @@ export async function makeWeChatCompatible(html: string, themeId: string): Promi
     });
 
     // 5. Convert all images to Base64 for safe WeChat pasting
-    const imgs = Array.from(section.querySelectorAll('img'));
-    await Promise.all(imgs.map(async img => {
-        const src = img.getAttribute('src');
-        if (src && !src.startsWith('data:')) {
-            const base64 = await getBase64Image(src);
-            img.setAttribute('src', base64);
-        }
-    }));
+    await inlineImagesAsBase64(section);
 
     doc.body.innerHTML = '';
     doc.body.appendChild(section);

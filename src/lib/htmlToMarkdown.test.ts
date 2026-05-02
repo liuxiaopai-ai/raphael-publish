@@ -1,7 +1,9 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { insertAtSelection } from './htmlToMarkdown';
+import { handleSmartPaste, insertAtSelection } from './htmlToMarkdown';
 
 describe('insertAtSelection', () => {
+    const originalCreateObjectURL = URL.createObjectURL;
+
     beforeEach(() => {
         vi.useFakeTimers();
     });
@@ -9,6 +11,8 @@ describe('insertAtSelection', () => {
     afterEach(() => {
         vi.runOnlyPendingTimers();
         vi.useRealTimers();
+        vi.restoreAllMocks();
+        URL.createObjectURL = originalCreateObjectURL;
         document.body.innerHTML = '';
     });
 
@@ -49,5 +53,42 @@ describe('insertAtSelection', () => {
 
         expect(textarea.selectionStart).toBe('hello Raphael'.length);
         expect(textarea.selectionEnd).toBe('hello Raphael'.length);
+    });
+
+    it('pastes clipboard images as blob object URLs', async () => {
+        const textarea = createTextarea('hello ');
+        textarea.selectionStart = textarea.selectionEnd = textarea.value.length;
+
+        const file = new File(['png'], 'clip.png', { type: 'image/png' });
+        const setMarkdownInput = vi.fn((value: string) => {
+            textarea.value = value;
+        });
+        URL.createObjectURL = vi.fn(() => 'blob:http://localhost/pasted-image') as typeof URL.createObjectURL;
+
+        const event = {
+            clipboardData: {
+                items: [
+                    {
+                        kind: 'file',
+                        type: 'image/png',
+                        getAsFile: () => file
+                    }
+                ],
+                files: [file],
+                getData: vi.fn(() => '')
+            },
+            currentTarget: textarea,
+            preventDefault: vi.fn()
+        } as unknown as React.ClipboardEvent<HTMLTextAreaElement>;
+
+        handleSmartPaste(event, setMarkdownInput);
+        await Promise.resolve();
+        vi.runAllTimers();
+
+        expect(event.preventDefault).toHaveBeenCalled();
+        expect(URL.createObjectURL).toHaveBeenCalledWith(file);
+        expect(setMarkdownInput).toHaveBeenCalledWith('hello ![图片](blob:http://localhost/pasted-image)');
+        expect(textarea.selectionStart).toBe(textarea.value.length);
+        expect(textarea.selectionEnd).toBe(textarea.value.length);
     });
 });
