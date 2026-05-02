@@ -89,13 +89,8 @@ function getClipboardImageFiles(clipboardData: DataTransfer): File[] {
     return Array.from(clipboardData.files || []).filter((file) => file.type.startsWith('image/'));
 }
 
-function fileToDataUrl(file: File): Promise<string> {
-    return new Promise((resolve, reject) => {
-        const reader = new FileReader();
-        reader.onload = () => resolve(String(reader.result || ''));
-        reader.onerror = () => reject(reader.error || new Error('Failed to read clipboard image'));
-        reader.readAsDataURL(file);
-    });
+function fileToObjectUrl(file: File): string {
+    return URL.createObjectURL(file);
 }
 
 export function insertAtSelection(
@@ -131,20 +126,19 @@ export function handleSmartPaste(
         e.preventDefault();
         const textarea = e.currentTarget;
 
-        Promise.all(imageFiles.map(fileToDataUrl))
-            .then((dataUrls) => {
-                const markdownImages = dataUrls
-                    .filter(Boolean)
-                    .map((src, index) => `![图片${dataUrls.length > 1 ? ` ${index + 1}` : ''}](${src})`)
-                    .join('\n\n');
+        try {
+            const objectUrls = imageFiles.map(fileToObjectUrl);
+            const markdownImages = objectUrls
+                .filter(Boolean)
+                .map((src, index) => `![图片${objectUrls.length > 1 ? ` ${index + 1}` : ''}](${src})`)
+                .join('\n\n');
 
-                if (!markdownImages) return;
-                insertAtSelection(textarea, markdownImages, setMarkdownInput);
-            })
-            .catch((err) => {
-                console.error('Clipboard image conversion failed:', err);
-                alert('粘贴图片失败，请重试');
-            });
+            if (!markdownImages) return;
+            insertAtSelection(textarea, markdownImages, setMarkdownInput);
+        } catch (err) {
+            console.error('Clipboard image conversion failed:', err);
+            alert('粘贴图片失败，请重试');
+        }
         return;
     }
 
