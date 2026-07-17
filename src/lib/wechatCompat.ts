@@ -32,6 +32,93 @@ async function getBase64Image(imgUrl: string): Promise<string> {
     }
 }
 
+function appendHighlightedText(
+    doc: Document,
+    line: HTMLElement,
+    text: string,
+    ancestors: Element[]
+) {
+    if (!text) return;
+
+    let node: Node = doc.createTextNode(text);
+    for (let index = ancestors.length - 1; index >= 0; index -= 1) {
+        const wrapper = ancestors[index].cloneNode(false) as Element;
+        wrapper.appendChild(node);
+        node = wrapper;
+    }
+    line.appendChild(node);
+}
+
+function createWechatCodeBlock(doc: Document, pre: HTMLPreElement, source: HTMLElement) {
+    const wrapper = doc.createElement('section');
+    wrapper.className = 'wechat-code-block';
+    wrapper.setAttribute('style', pre.getAttribute('style') || '');
+
+    const header = doc.createElement('section');
+    header.className = 'wechat-code-header';
+    header.setAttribute('style', 'margin-bottom: 12px; white-space: nowrap; line-height: 1;');
+    [
+        ['#ff5f56', '6px'],
+        ['#ffbd2e', '6px'],
+        ['#27c93f', '0'],
+    ].forEach(([color, margin]) => {
+        const dot = doc.createElement('span');
+        dot.textContent = '●';
+        dot.setAttribute('style', `color: ${color}; font-size: 18px; margin-right: ${margin};`);
+        header.appendChild(dot);
+    });
+
+    const body = doc.createElement('section');
+    const codePre = doc.createElement('pre');
+    codePre.className = 'code-snippet';
+    codePre.setAttribute('style', 'margin: 0; padding: 0; border: 0; background: transparent; overflow-x: auto; font: inherit;');
+
+    const createLine = () => {
+        const line = doc.createElement('code');
+        Array.from(source.attributes).forEach(attribute => line.setAttribute(attribute.name, attribute.value));
+        line.setAttribute('style', `${line.getAttribute('style') || ''}; display: block; white-space: pre; min-height: 1em;`);
+        codePre.appendChild(line);
+        return line;
+    };
+
+    let line = createLine();
+    const startNewLine = () => {
+        line = createLine();
+    };
+
+    const visit = (node: Node, ancestors: Element[] = []) => {
+        if (node.nodeType === Node.TEXT_NODE) {
+            const parts = (node.textContent || '').split('\n');
+            parts.forEach((part, index) => {
+                appendHighlightedText(doc, line, part, ancestors);
+                if (index < parts.length - 1) startNewLine();
+            });
+            return;
+        }
+        if (!(node instanceof Element)) return;
+        if (node.tagName === 'BR') {
+            startNewLine();
+            return;
+        }
+        Array.from(node.childNodes).forEach(child => visit(child, [...ancestors, node]));
+    };
+
+    Array.from(source.childNodes).forEach(node => visit(node));
+
+    const lines = Array.from(codePre.children) as HTMLElement[];
+    const lastLine = lines[lines.length - 1];
+    if (source.textContent?.endsWith('\n') && lines.length > 1 && !lastLine.textContent) {
+        lastLine.remove();
+    }
+    Array.from(codePre.children).forEach(code => {
+        if (!code.textContent) code.textContent = '\u00a0';
+    });
+
+    body.appendChild(codePre);
+    wrapper.append(header, body);
+    pre.replaceWith(wrapper);
+}
+
 export async function makeWeChatCompatible(html: string, themeId: string): Promise<string> {
     const parser = new DOMParser();
     const doc = parser.parseFromString(html, 'text/html');
@@ -49,6 +136,13 @@ export async function makeWeChatCompatible(html: string, themeId: string): Promi
 
     // Note: We manually remove attributes here before DOM manipulation
     // The stripIndexMarkers() function is also available for HTML string operations
+
+    // WeChat removes empty decorative spans and can collapse newline text inside one
+    // <code> element. Use real glyphs and a separate <code> element for every line.
+    doc.querySelectorAll('pre').forEach(pre => {
+        const source = pre.querySelector(':scope > code');
+        if (source instanceof HTMLElement) createWechatCodeBlock(doc, pre, source);
+    });
 
     // 1. WeChat prefers <section> as the root wrapper for overall styling
     // If the root is a div, let's wrap or convert it to a section.
