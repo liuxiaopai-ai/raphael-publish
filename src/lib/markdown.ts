@@ -34,12 +34,33 @@ export function preprocessMarkdown(content: string) {
     content = content.replace(/\*{4,}/g, '');
     // markdown-it may fail to open bold when content starts with punctuation/symbol
     // and `**` is attached directly to preceding text (e.g. `至**-5%**。`).
-    // Insert a zero-width separator only inside opening `**...` for these cases.
-    content = content.replace(
-        /([^\s])\*\*([+\-＋－%％~～!！?？,，.。:：;；、\\/|@#￥$^&*_=（）()【】\[\]《》〈〉「」『』“”"'`…·][^\n*]*?)\*\*/g,
-        '$1**\u200B$2**'
-    );
-    return content;
+    // Pair delimiters in order, including bold that needs no repair, so a closing
+    // `**` cannot be reused as an opening delimiter before punctuation.
+    // Skip escaped characters and complete code spans, including those inside bold.
+    const markers = /\\[^\r\n]|(?<!`)(`+)(?!`)[\s\S]*?(?<!`)\1(?!`)|\*\*|\r?\n/g;
+    const leadingSymbol = /^[+\-＋－%％~～!！?？,，.。:：;；、\\/|@#￥$^&*_=（）()【】\[\]《》〈〉「」『』“”"'`…·]/;
+    const parts: string[] = [];
+    let opening = -1;
+    let copiedUntil = 0;
+
+    for (const marker of content.matchAll(markers)) {
+        const offset = marker.index;
+        if (marker[0].includes('\n')) {
+            // Keep repairs on a single line; do not pair across Markdown blocks.
+            opening = -1;
+        } else if (marker[0] === '**') {
+            if (opening === -1) {
+                if (/\S/.test(content[offset + 2] || '')) opening = offset;
+                continue;
+            }
+            if (opening > 0 && /\S/.test(content[opening - 1]) && leadingSymbol.test(content[opening + 2])) {
+                parts.push(content.slice(copiedUntil, opening + 2), '\u200B');
+                copiedUntil = opening + 2;
+            }
+            opening = -1;
+        }
+    }
+    return parts.join('') + content.slice(copiedUntil);
 }
 
 export function applyTheme(html: string, themeId: string) {
